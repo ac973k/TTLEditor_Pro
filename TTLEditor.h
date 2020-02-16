@@ -18,7 +18,7 @@ class QTextEdit;
 
 class QProcess;
 
-class TTLEditor : QWidget
+class TTLEditor : public QWidget
 {
 	Q_OBJECT
 	
@@ -44,6 +44,6 @@ class TTLEditor : QWidget
 	void setTTL();
 	void currentTTL();
 	void restoreTTL();
-}
+};
 
-#endif TTLEDITOR_H
+#endif // TTLEDITOR_H
