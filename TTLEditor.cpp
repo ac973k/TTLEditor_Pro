@@ -1,9 +1,8 @@
 #include "TTLEditor.h"
 
-#include <QDir>
 #include <QSettings>
-#include <QVariant>
 #include <QFile>
+#include <fstream>
 
 TTLEditor::TTLEditor(QWidget *parent)
 : QWidget(parent)
@@ -21,19 +20,37 @@ TTLEditor::TTLEditor(QWidget *parent)
 	
 	procTTL = new QProcess;
 
-    QDir dir("/sdcard/Android/data/org.TTLEditor.pro");
-    if (!dir.exists())
+    QFile file("/proc/sys/net/ipv4/ip_default_ttl");
+    file.open(QIODevice::ReadOnly);
+    QString tmpData = file.readLine();
+    int stockTTL = tmpData.toInt();
+
+    std::ofstream files("/sdcard/settings.ini", std::ofstream::app);
+    if(!files.is_open())
     {
-        dir.mkdir("/sdcard/Android/data/org.TTLEditor.pro");
+        logText->append("Error!");
     }
 
-    mainLayout->addWidget(btnCurrent, 0, 0, 0, 2);
-    mainLayout->addWidget(numTTL, 1, 0);
-    mainLayout->addWidget(btnSet, 1, 1);
-    mainLayout->addWidget(logText, 2, 0, 2, 2);
-    mainLayout->addWidget(btnRestore, 3, 0, 3, 2);
+    QSettings sett("/storage/emulated/0/settings.ini", QSettings::IniFormat);
+
+    int getStockTTL;
+    getStockTTL = sett.value("General/STOCK").toInt();
+    if(getStockTTL == 0)
+    {
+        sett.setValue("General/STOCK", stockTTL);
+    }
+
+    mainLayout->addWidget(btnCurrent, 1, 0, 1, 2);
+    mainLayout->addWidget(numTTL, 2, 0);
+    mainLayout->addWidget(btnSet, 2, 1);
+    mainLayout->addWidget(logText, 3, 0, 3, 2);
+    mainLayout->addWidget(btnRestore, 4, 0, 4, 2);
 
     setLayout(mainLayout);
+
+    QObject::connect(btnCurrent, SIGNAL(clicked()), this, SLOT(currentTTL()));
+    QObject::connect(btnSet, SIGNAL(clicked()), this, SLOT(setTTL()));
+    QObject::connect(btnRestore, SIGNAL(clicked()), this, SLOT(restoreTTL()));
 }
 
 TTLEditor::~TTLEditor()
@@ -55,15 +72,10 @@ void TTLEditor::currentTTL()
 {
     QFile file("/proc/sys/net/ipv4/ip_default_ttl");
     file.open(QIODevice::ReadOnly);
-    QDataStream in(&file);
+    QString tmpData = file.readLine();
+    int currentTTL = tmpData.toInt();
 
-    int stockTTL;
-    in >> stockTTL;
-
-    QSettings sett("/sdcard/Android/data/org/TTLEditor.pro/settings.ini", QSettings::IniFormat);
-    sett.setValue("General/STOCK", stockTTL);
-
-    QString str = "Current TTL: " + QString::number(stockTTL);
+    QString str = "Current TTL: " + QString::number(currentTTL);
     logText->append(str);
 }
 
@@ -73,7 +85,7 @@ void TTLEditor::setTTL()
 
     newTTL = numTTL->text().toInt();
 
-    QSettings sett("/sdcard/Android/data/org/TTLEditor.pro/settings.ini", QSettings::IniFormat);
+    QSettings sett("/storage/emulated/0/settings.ini", QSettings::IniFormat);
     sett.setValue("General/NEW", newTTL);
 
     procTTL->setProcessChannelMode(QProcess::SeparateChannels);
@@ -95,7 +107,7 @@ void TTLEditor::setTTL()
 void TTLEditor::restoreTTL()
 {
     int stockTTL;
-    QSettings sett("/sdcard/Android/data/org/TTLEditor.pro/settings.ini", QSettings::IniFormat);
+    QSettings sett("/storage/emulated/0/settings.ini", QSettings::IniFormat);
     stockTTL = sett.value("General/STOCK", 64).toInt();
 
     procTTL->setProcessChannelMode(QProcess::SeparateChannels);
