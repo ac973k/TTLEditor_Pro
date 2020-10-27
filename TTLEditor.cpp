@@ -31,7 +31,7 @@ TTLEditor::TTLEditor(QWidget *parent)
         logText->append("Error!");
     }
 
-    QSettings sett("/storage/emulated/0/settings.ini", QSettings::IniFormat);
+    QSettings sett("/sdcard/settings.ini", QSettings::IniFormat);
 
     int getStockTTL;
     getStockTTL = sett.value("General/STOCK").toInt();
@@ -85,29 +85,41 @@ void TTLEditor::setTTL()
 
     newTTL = numTTL->text().toInt();
 
-    QSettings sett("/storage/emulated/0/settings.ini", QSettings::IniFormat);
-    sett.setValue("General/NEW", newTTL);
+    if (newTTL > 255 or newTTL <= 0)
+    {
+        logText->append("Max TTL = 255, Min TTL = 1");
+    }
+    else if (numTTL->text() == NULL)
+    {
+        logText->append("Enter TTL");
+    }
+    else
+    {
 
-    procTTL->setProcessChannelMode(QProcess::SeparateChannels);
-    procTTL->start("su", QStringList() << "-c" << "echo" << QString::number(newTTL) << ">>" << "/proc/sys/net/ipv4/ip_default_ttl");
+        QSettings sett("/sdcard/settings.ini", QSettings::IniFormat);
+        sett.setValue("General/NEW", newTTL);
 
-        if(!procTTL->waitForFinished())
-        {
-            logText->append(procTTL->errorString());
-        }
-        else
-        {
-            QString str = "New TTL: " + QString::number(newTTL);
-            logText->append(str);
-            logText->append(procTTL->readAll());
-            logText->append(tr("Ok!"));
-        }
+        procTTL->setProcessChannelMode(QProcess::SeparateChannels);
+        procTTL->start("su", QStringList() << "-c" << "echo" << QString::number(newTTL) << ">>" << "/proc/sys/net/ipv4/ip_default_ttl");
+
+            if(!procTTL->waitForFinished())
+            {
+                logText->append(procTTL->errorString());
+            }
+            else
+            {
+             QString str = "New TTL: " + QString::number(newTTL);
+             logText->append(str);
+             logText->append(procTTL->readAll());
+             logText->append(tr("Ok!"));
+            }
+    }
 }
 
 void TTLEditor::restoreTTL()
 {
     int stockTTL;
-    QSettings sett("/storage/emulated/0/settings.ini", QSettings::IniFormat);
+    QSettings sett("/sdcard/settings.ini", QSettings::IniFormat);
     stockTTL = sett.value("General/STOCK", 64).toInt();
 
     procTTL->setProcessChannelMode(QProcess::SeparateChannels);
