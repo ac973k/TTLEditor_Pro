@@ -1,4 +1,4 @@
-QT       += core gui
+QT       += core gui androidextras testlib
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -34,11 +34,10 @@ DISTFILES += \
     android/gradle/wrapper/gradle-wrapper.properties \
     android/gradlew \
     android/gradlew.bat \
+    android/res/drawable-hdpi/icon.png \
+    android/res/drawable-ldpi/icon.png \
+    android/res/drawable-mdpi/icon.png \
+    android/res/drawable/launcher_icon.png \
     android/res/values/libs.xml
 
-contains(ANDROID_TARGET_ARCH,armeabi-v7a) {
-    ANDROID_PACKAGE_SOURCE_DIR = \
-        $$PWD/android
-}
-
-ANDROID_ABIS = armeabi-v7a
+ANDROID_PACKAGE_SOURCE_DIR = $$PWD/android

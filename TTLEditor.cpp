@@ -4,6 +4,33 @@
 #include <QFile>
 #include <fstream>
 
+#include <QtAndroidExtras/QtAndroid>
+#include <QtTest/QTest>
+
+bool is_empty(std::ifstream& pFile)
+{
+    return pFile.peek() == std::ifstream::traits_type::eof();
+}
+
+bool requestAndroidPermissions(){
+//Request requiered permissions at runtime
+
+const QVector<QString> permissions({
+                                    "android.permission.WRITE_EXTERNAL_STORAGE",
+                                    "android.permission.READ_EXTERNAL_STORAGE"});
+
+for(const QString &permission : permissions){
+    auto result = QtAndroid::checkPermission(permission);
+    if(result == QtAndroid::PermissionResult::Denied){
+        auto resultHash = QtAndroid::requestPermissionsSync(QStringList({permission}));
+        if(resultHash[permission] == QtAndroid::PermissionResult::Denied)
+            return false;
+    }
+}
+
+return true;
+}
+
 TTLEditor::TTLEditor(QWidget *parent)
 : QWidget(parent)
 {
@@ -25,20 +52,35 @@ TTLEditor::TTLEditor(QWidget *parent)
     QString tmpData = file.readLine();
     int stockTTL = tmpData.toInt();
 
-    std::ofstream files("/sdcard/settings.ini", std::ofstream::app);
-    if(!files.is_open())
+    std::ifstream files("/sdcard/settings.ini", std::ios_base::app);
+    if (!files.is_open())
     {
-        logText->append("Error!");
+        logText->append("Error! File not found. Create...");
+        requestAndroidPermissions();
+        QTest::qSleep(2000);
+
+        QFile files("/sdcard/settings.ini");
+        files.open(QIODevice::WriteOnly);
+        files.close();
     }
 
-    QSettings sett("/sdcard/settings.ini", QSettings::IniFormat);
-
-    int getStockTTL;
-    getStockTTL = sett.value("General/STOCK").toInt();
-    if(getStockTTL == 0)
+    else
     {
-        sett.setValue("General/STOCK", stockTTL);
+        if (is_empty(files))
+        {
+            QSettings sett("/sdcard/settings.ini", QSettings::IniFormat);
+            sett.beginGroup("General");
+            sett.sync();
+
+            int getStockTTL;
+            getStockTTL = sett.value("STOCK").toInt();
+            if(getStockTTL == 0)
+            {
+                sett.setValue("STOCK", stockTTL);
+            }
+        }
     }
+
 
     mainLayout->addWidget(btnCurrent, 1, 0, 1, 2);
     mainLayout->addWidget(numTTL, 2, 0);
@@ -97,7 +139,16 @@ void TTLEditor::setTTL()
     {
 
         QSettings sett("/sdcard/settings.ini", QSettings::IniFormat);
-        sett.setValue("General/NEW", newTTL);
+        sett.beginGroup("General");
+
+
+        QFile file("/proc/sys/net/ipv4/ip_default_ttl");
+        file.open(QIODevice::ReadOnly);
+        QString tmpData = file.readLine();
+        int stockTTL = tmpData.toInt();
+
+        sett.setValue("STOCK", stockTTL);
+        sett.setValue("NEW", newTTL);
 
         procTTL->setProcessChannelMode(QProcess::SeparateChannels);
         procTTL->start("su", QStringList() << "-c" << "echo" << QString::number(newTTL) << ">>" << "/proc/sys/net/ipv4/ip_default_ttl");
@@ -120,7 +171,9 @@ void TTLEditor::restoreTTL()
 {
     int stockTTL;
     QSettings sett("/sdcard/settings.ini", QSettings::IniFormat);
-    stockTTL = sett.value("General/STOCK", 64).toInt();
+    sett.beginGroup("General");
+    stockTTL = sett.value("STOCK", 64).toInt();
+    sett.setValue("NEW", stockTTL);
 
     procTTL->setProcessChannelMode(QProcess::SeparateChannels);
     procTTL->start("su", QStringList() << "-c" << "echo" << QString::number(stockTTL) << ">>" << "/proc/sys/net/ipv4/ip_default_ttl");
