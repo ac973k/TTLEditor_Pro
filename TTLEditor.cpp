@@ -52,14 +52,14 @@ TTLEditor::TTLEditor(QWidget *parent)
     QString tmpData = file.readLine();
     int stockTTL = tmpData.toInt();
 
-    std::ifstream files("/sdcard/settings.ini", std::ios_base::app);
+    std::ifstream files("/data/data/org.TTLEditor.pro/settings.ini", std::ios_base::app);
     if (!files.is_open())
     {
         logText->append("Error! File not found. Create...");
         requestAndroidPermissions();
         QTest::qSleep(2000);
 
-        QFile files("/sdcard/settings.ini");
+        QFile files("/data/data/org.TTLEditor.pro/settings.ini");
         files.open(QIODevice::WriteOnly);
         files.close();
     }
@@ -68,7 +68,7 @@ TTLEditor::TTLEditor(QWidget *parent)
     {
         if (is_empty(files))
         {
-            QSettings sett("/sdcard/settings.ini", QSettings::IniFormat);
+            QSettings sett("/data/data/org.TTLEditor.pro/settings.ini", QSettings::IniFormat);
             sett.beginGroup("General");
             sett.sync();
 
@@ -127,7 +127,7 @@ void TTLEditor::setTTL()
 
     newTTL = numTTL->text().toInt();
 
-    if (newTTL > 255 or newTTL <= 0)
+    if (newTTL > 255 || newTTL <= 0)
     {
         logText->append("Max TTL = 255, Min TTL = 1");
     }
@@ -138,7 +138,7 @@ void TTLEditor::setTTL()
     else
     {
 
-        QSettings sett("/sdcard/settings.ini", QSettings::IniFormat);
+        QSettings sett("/data/data/org.TTLEditor.pro/settings.ini", QSettings::IniFormat);
         sett.beginGroup("General");
 
 
@@ -150,43 +150,36 @@ void TTLEditor::setTTL()
         sett.setValue("STOCK", stockTTL);
         sett.setValue("NEW", newTTL);
 
-        procTTL->setProcessChannelMode(QProcess::SeparateChannels);
-        procTTL->start("su", QStringList() << "-c" << "echo" << QString::number(newTTL) << ">>" << "/proc/sys/net/ipv4/ip_default_ttl");
+        QObject::connect(procTTL, SIGNAL(readyReadStandardOutput()), this, SLOT(getLog()));
 
-            if(!procTTL->waitForFinished())
-            {
-                logText->append(procTTL->errorString());
-            }
-            else
-            {
-             QString str = "New TTL: " + QString::number(newTTL);
-             logText->append(str);
-             logText->append(procTTL->readAll());
-             logText->append(tr("Ok!"));
-            }
+        procTTL->start("su", QStringList() << "-c" << "echo" << QString::number(newTTL) << ">>" << "/proc/sys/net/ipv4/ip_default_ttl");
+        procTTL->setProcessChannelMode(QProcess::MergedChannels);
+        procTTL->waitForStarted();
+
+        QString str = "New TTL: " + QString::number(newTTL);
+        logText->append(str);
     }
 }
 
 void TTLEditor::restoreTTL()
 {
     int stockTTL;
-    QSettings sett("/sdcard/settings.ini", QSettings::IniFormat);
+    QSettings sett("/data/data/org.TTLEditor.pro/settings.ini", QSettings::IniFormat);
     sett.beginGroup("General");
     stockTTL = sett.value("STOCK", 64).toInt();
     sett.setValue("NEW", stockTTL);
 
-    procTTL->setProcessChannelMode(QProcess::SeparateChannels);
-    procTTL->start("su", QStringList() << "-c" << "echo" << QString::number(stockTTL) << ">>" << "/proc/sys/net/ipv4/ip_default_ttl");
+    QObject::connect(procTTL, SIGNAL(readyReadStandardOutput()), this, SLOT(getLog()));
 
-        if(!procTTL->waitForFinished())
-        {
-            logText->append(procTTL->errorString());
-        }
-        else
-        {
-            QString str = "Current TTL: " + QString::number(stockTTL);
-            logText->append(tr("Stock TTL has been restored."));
-            logText->append(str);
-            logText->append(procTTL->readAll());
-        }
+    procTTL->start("su", QStringList() << "-c" << "echo" << QString::number(stockTTL) << ">>" << "/proc/sys/net/ipv4/ip_default_ttl");
+    procTTL->setProcessChannelMode(QProcess::MergedChannels);
+    procTTL->waitForStarted();
+
+    QString str = "Current TTL: " + QString::number(stockTTL);
+    logText->append(tr("Stock TTL has been restored."));
+    logText->append(str);
+}
+
+void TTLEditor::getLog() {
+    logText->append(QString::fromUtf8(procTTL->readAllStandardOutput()));
 }

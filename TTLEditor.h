@@ -44,6 +44,7 @@ class TTLEditor : public QWidget
 	void setTTL();
 	void currentTTL();
 	void restoreTTL();
+    void getLog();
 };
 
 #endif // TTLEDITOR_H
